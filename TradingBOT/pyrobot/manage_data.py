@@ -69,10 +69,40 @@ class ManageDatas:
         data['parkinson_sma_L'] = data.groupby(level='symbol', as_index=False)['parkinson'].rolling(self.parkinson_sma_L_window).mean().drop(['symbol'], axis=1)
         data['parkinson_spread'] = (data.parkinson_sma_L - data.parkinson_sma_H) / data.parkinson_sma_H
 
+
+
         return data
 
+    def clean_datas(self, data):
+
+        data = data.drop(['open', 'high', 'low', 'close'], axis=1)
+        data = data.dropna(how='any')
+        data = data.replace([np.inf, -np.inf], np.nan)
+        data = data.fillna(method='ffill')
+
+        return data
 
 
     def get_train_datas(self, length):
         
-        pass
+        max_window = max(self.momentum_windows)
+        length += max_window
+        prices = self.get_clean_prices(lenght=length)
+        data = self.get_features_data(data=prices)
+        data['target_1p'] = data.groupby(level='symbol', group_keys=False).apply(lambda x: np.log(x.close/x.close.shift(1)))
+        data['target_1p'] = data['target_1p'].shift(-1)
+        data = self.clean_datas(data=data)
+        return data
+    
+    def get_predict_datas(self):
+
+
+        # Faire attention ici max_window pourrait être = max(self.momentum_windows) + 1
+        max_window = max(self.momentum_windows)
+        prices = self.get_clean_prices(lenght=max_window)
+        data = self.get_features_data(data=prices)
+        data = self.clean_datas(data=data)
+        predict_row = data.iloc[-1]
+        return predict_row
+    
+    
