@@ -8,12 +8,13 @@ from typing import List, Dict, Union
 class PyRobot:
 
 
-    def __init__(self, client_id: int, client_mdp: str, trading_serveur: str):
+    def __init__(self, client_id: int, client_mdp: str, trading_serveur: str, leverage: float):
 
         self.client_id = client_id
         self.client_mdp = client_mdp
         self.trading_serveur = trading_serveur
         self.trades: dict = {}
+        self.leverage = leverage
 
     def _create_session(self):
 
@@ -44,9 +45,18 @@ class PyRobot:
     def create_portfolio(self):
         pass
 
-    def create_trade(self):
-        pass
+    def create_entry_trades(self, dict_pos: dict):
 
+        for ticker in dict_pos.keys():
+
+            order = {
+                "action" : mt5.TRADE_ACTION_DEAL,
+                "symbol" : ticker,
+                "volume" : 1.0, # à modifier avec un volume qui dépend du levier qui est lui même variable
+                "type" : None
+            }
+
+        
     def grab_current_quotes(self):
         pass
 
