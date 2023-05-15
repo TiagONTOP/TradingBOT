@@ -92,7 +92,6 @@ class ManageDatas:
     
     def get_predict_datas(self):
 
-
         # Faire attention ici max_window pourrait être = max(self.momentum_windows) + 1
         max_window = max(self.momentum_windows)
         prices = self.get_clean_prices(lenght=max_window)

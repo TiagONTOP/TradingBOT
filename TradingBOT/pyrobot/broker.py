@@ -1,8 +1,13 @@
 import pandas as pd
 import MetaTrader5 as mt5
 from datetime import datetime, time, timezone
+import numpy as np
+import math
 
 from typing import List, Dict, Union
+
+def sign(x):
+    return int(math.copysign(1, x))
 
 
 class PyRobot:
@@ -42,8 +47,17 @@ class PyRobot:
         else:
             return False
 
-    def create_portfolio(self):
-        pass
+    def get_portfolio_pos_time(self):
+
+        portfolio = {}
+        positions = mt5.positions_get()
+        if positions is None:
+            return None
+        else:
+            for position in positions:
+                portfolio[position.symbol] = {'PosType' : 1 if position.type == mt5.POSITION_TYPE_BUY else -1,
+                                              'Time': datetime.now() - datetime.fromtimestamp(position.time)}
+        return portfolio
 
     def create_entry_trades(self, dict_pos: dict):
 
@@ -55,6 +69,22 @@ class PyRobot:
                 "volume" : 1.0, # à modifier avec un volume qui dépend du levier qui est lui même variable
                 "type" : None
             }
+
+    def create_close_trades(self, all_preds, time_limit):
+
+        pos_time = self.get_portfolio_pos_time()
+        for ticker in pos_time.keys():
+            if (pos_time[ticker]['Time'] > time_limit) and (pos_time[ticker]['PosType'] != sign(all_preds)):
+                
+                order = {"action": mt5.TRADE_ACTION_DEAL,
+                         "symbol": ticker,
+                         "volume": 1.0, # à modifier avec un volume qui dépend du levier qui est lui même variable
+                         "type": mt5.ORDER_TYPE_SELL_LIMIT if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY_LIMIT,
+                         "price": mt5.symbol_info_tick(ticker).ask if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).bid,
+                         }
+
+    def create_exits_trades(self, preds):
+        pass
 
         
     def grab_current_quotes(self):
