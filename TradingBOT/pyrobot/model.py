@@ -21,7 +21,9 @@ class TradingModel:
         return preds
     
     def tickers_to_trades(self, n_trades, preds=None):
-
+         
+        if n_trades <= 0:
+            return None
         if preds is None:
             tickers = self.preds.abs().sort_values(by='preds', ascending=False).iloc[:n_trades].to_list()
             signs = list(np.sign(self.preds.loc[tickers]))

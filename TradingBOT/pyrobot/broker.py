@@ -3,6 +3,7 @@ import MetaTrader5 as mt5
 from datetime import datetime, time, timezone
 import numpy as np
 import math
+from forex_python.converter import CurrencyRates
 
 from typing import List, Dict, Union
 
@@ -12,6 +13,7 @@ def sign(x):
 
 class PyRobot:
 
+    
 
     def __init__(self, client_id: int, client_mdp: str, trading_serveur: str, leverage: float):
 
@@ -20,6 +22,7 @@ class PyRobot:
         self.trading_serveur = trading_serveur
         self.trades: dict = {}
         self.leverage = leverage
+        self.cr = CurrencyRates()
 
     def _create_session(self):
 
@@ -66,29 +69,53 @@ class PyRobot:
             order = {
                 "action" : mt5.TRADE_ACTION_DEAL,
                 "symbol" : ticker,
-                "volume" : 1.0, # à modifier avec un volume qui dépend du levier qui est lui même variable
-                "type" : None
+                "volume" : self.leverage_to_volume(ticker),
+                "type" : mt5.ORDER_TYPE_BUY_LIMIT if dict_pos[ticker] == 1 else mt5.ORDER_TYPE_SELL_LIMIT,
+                "price" : mt5.symbol_info_tick(ticker).bid if dict_pos[ticker] == 1 else mt5.symbol_info_tick(ticker).ask
             }
 
-    def create_close_trades(self, all_preds, time_limit):
+            mt5.order_send(order)
 
+    def create_close_trades(self, all_preds, time_limit, volume):
+        volumes = {}
+        positions = mt5.positions_get()
+        for position in positions:
+            volumes[position.symbol] = position.volume
         pos_time = self.get_portfolio_pos_time()
         for ticker in pos_time.keys():
             if (pos_time[ticker]['Time'] > time_limit) and (pos_time[ticker]['PosType'] != sign(all_preds)):
                 
-                order = {"action": mt5.TRADE_ACTION_DEAL,
-                         "symbol": ticker,
-                         "volume": 1.0, # à modifier avec un volume qui dépend du levier qui est lui même variable
-                         "type": mt5.ORDER_TYPE_SELL_LIMIT if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY_LIMIT,
-                         "price": mt5.symbol_info_tick(ticker).ask if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).bid,
-                         }
+                order = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": ticker,
+                    "volume": volume[ticker],
+                    "type": mt5.ORDER_TYPE_SELL_LIMIT if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY_LIMIT,
+                    "price": mt5.symbol_info_tick(ticker).ask if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).bid    
+                }
+                
+                mt5.order_send(order)
+                
+    def cancel_order(self):
 
-    def create_exits_trades(self, preds):
-        pass
+        orders = mt5.orders_get()
+        for order in orders:
+            result = mt5.order_send({
+                "action": mt5.TRADE_ACTION_REMOVE,
+                "ticket": order.ticket})
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            return False
+        else:
+            return True
+    
+    def leverage_to_volume(self, ticker):
+
+        account_currency = mt5.account_info().currency
+        account = mt5.account_info().equity
+        currency_base = mt5.symbol_info(ticker).currency_base
+        lot_value = self.cr.convert(currency_base, account_currency, account)
+        volume = self.leverage * account / lot_value
+
+        return volume 
+        
 
         
-    def grab_current_quotes(self):
-        pass
-
-    def grab_historical_prices(self):
-        pass
