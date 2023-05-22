@@ -25,10 +25,10 @@ class TradingModel:
         if n_trades <= 0:
             return None
         if preds is None:
-            tickers = self.preds.abs().sort_values(by='preds', ascending=False).iloc[:n_trades].to_list()
+            tickers = self.preds.abs().sort_values(by='preds', ascending=False).iloc[:n_trades].index.to_list()
             signs = list(np.sign(self.preds.loc[tickers]))
         else:
-            tickers = preds.abs().sort_values(by='preds', ascending=False).iloc[:n_trades].to_list()
+            tickers = preds.abs().sort_values(by='preds', ascending=False).iloc[:n_trades].index.to_list()
             signs = list(np.sign(preds.loc[tickers]))
 
         return dict(zip(tickers, signs))

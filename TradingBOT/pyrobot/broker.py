@@ -1,10 +1,10 @@
 import pandas as pd
 import MetaTrader5 as mt5
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timezone, date
 import numpy as np
 import math
 from forex_python.converter import CurrencyRates
-
+import holidays
 from typing import List, Dict, Union
 
 def sign(x):
@@ -31,19 +31,28 @@ class PyRobot:
 
     @property
     def market_open(self) -> bool:
-        symbol = 'EURUSD'
-        symbol_info = mt5.symbol_info(symbol)
-        if symbol_info.session_deals == 0:
-            return False
+        current_time = datetime.utcnow()
+        us_holidays = holidays.US()
+        if date.today() not in us_holidays:
+
+            if current_time.weekday() < 4:
+                return True
+            elif current_time.weekday() == 4 and current_time.hour < 22:
+                return True
+            elif current_time.weekday() == 6 and current_time.hour > 22:
+                return True
+            else:
+                return False
+
         else:
-            return True
+            return False
 
     @property
     def liquidity_hours(self) -> bool:
 
         lower_bound = datetime.now().replace(hour=3, minute=0, second=0, tzinfo=timezone.utc).timestamp()
         higher_bound = datetime.now().replace(hour=22, minute=0, second=0, tzinfo=timezone.utc).timestamp()
-        right_now = datetime.now().replace(tzinfo=timezone.utc()).timestamp()
+        right_now = datetime.now().astimezone(timezone.utc).timestamp()
 
         if higher_bound >= right_now >= lower_bound: 
             return True
@@ -74,9 +83,9 @@ class PyRobot:
                 "price" : mt5.symbol_info_tick(ticker).bid if dict_pos[ticker] == 1 else mt5.symbol_info_tick(ticker).ask
             }
 
-            mt5.order_send(order)
+            print(mt5.order_send(order))
 
-    def create_close_trades(self, all_preds, time_limit, volume):
+    def create_close_trades(self, all_preds, time_limit):
         volumes = {}
         positions = mt5.positions_get()
         for position in positions:
@@ -88,7 +97,7 @@ class PyRobot:
                 order = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": ticker,
-                    "volume": volume[ticker],
+                    "volume": volumes[ticker],
                     "type": mt5.ORDER_TYPE_SELL_LIMIT if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY_LIMIT,
                     "price": mt5.symbol_info_tick(ticker).ask if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).bid    
                 }
@@ -98,14 +107,12 @@ class PyRobot:
     def cancel_order(self):
 
         orders = mt5.orders_get()
+        if orders is None:
+            return
         for order in orders:
             result = mt5.order_send({
                 "action": mt5.TRADE_ACTION_REMOVE,
                 "ticket": order.ticket})
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return False
-        else:
-            return True
     
     def leverage_to_volume(self, ticker):
 
@@ -114,7 +121,7 @@ class PyRobot:
         currency_base = mt5.symbol_info(ticker).currency_base
         lot_value = self.cr.convert(currency_base, account_currency, account)
         volume = self.leverage * account / lot_value
-
+        volume = round(volume, ndigits=2)
         return volume 
         
 
