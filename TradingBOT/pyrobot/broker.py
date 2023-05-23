@@ -69,6 +69,7 @@ class PyRobot:
             for position in positions:
                 portfolio[position.symbol] = {'PosType' : 1 if position.type == mt5.POSITION_TYPE_BUY else -1,
                                               'Time': datetime.now() - datetime.fromtimestamp(position.time)}
+                print(position.time, datetime.fromtimestamp(position.time))
         return portfolio
 
     def create_entry_trades(self, dict_pos: dict):
@@ -76,30 +77,33 @@ class PyRobot:
         for ticker in dict_pos.keys():
 
             order = {
-                "action" : mt5.TRADE_ACTION_DEAL,
+                "action" : mt5.TRADE_ACTION_PENDING,
                 "symbol" : ticker,
                 "volume" : self.leverage_to_volume(ticker),
                 "type" : mt5.ORDER_TYPE_BUY_LIMIT if dict_pos[ticker] == 1 else mt5.ORDER_TYPE_SELL_LIMIT,
                 "price" : mt5.symbol_info_tick(ticker).bid if dict_pos[ticker] == 1 else mt5.symbol_info_tick(ticker).ask
             }
 
-            print(mt5.order_send(order))
+            mt5.order_send(order)
 
     def create_close_trades(self, all_preds, time_limit):
         volumes = {}
+        tickets = {}
         positions = mt5.positions_get()
         for position in positions:
             volumes[position.symbol] = position.volume
+            tickets[position.symbol] = position.ticket
         pos_time = self.get_portfolio_pos_time()
         for ticker in pos_time.keys():
-            if (pos_time[ticker]['Time'] > time_limit) and (pos_time[ticker]['PosType'] != sign(all_preds)):
-                
+            print(ticker, (pos_time[ticker]['Time'].seconds / 60 > time_limit), pos_time[ticker]['Time'].seconds / 60, (pos_time[ticker]['PosType'] != sign(all_preds.loc[ticker])))
+            if (pos_time[ticker]['Time'].seconds / 60 > time_limit) and (pos_time[ticker]['PosType'] != sign(all_preds.loc[ticker])):
                 order = {
                     "action": mt5.TRADE_ACTION_DEAL,
+                    "position": tickets[ticker],
                     "symbol": ticker,
                     "volume": volumes[ticker],
-                    "type": mt5.ORDER_TYPE_SELL_LIMIT if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY_LIMIT,
-                    "price": mt5.symbol_info_tick(ticker).ask if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).bid    
+                    "type": mt5.ORDER_TYPE_SELL if pos_time[ticker]['PosType'] == 1 else mt5.ORDER_TYPE_BUY,
+                    "price": mt5.symbol_info_tick(ticker).bid if pos_time[ticker]['PosType'] == 1 else mt5.symbol_info_tick(ticker).ask    
                 }
                 
                 mt5.order_send(order)
@@ -107,12 +111,14 @@ class PyRobot:
     def cancel_order(self):
 
         orders = mt5.orders_get()
+        print(orders)
         if orders is None:
             return
         for order in orders:
-            result = mt5.order_send({
+            mt5.order_send({
                 "action": mt5.TRADE_ACTION_REMOVE,
-                "ticket": order.ticket})
+                "order": order.ticket
+                })
     
     def leverage_to_volume(self, ticker):
 

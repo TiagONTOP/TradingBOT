@@ -80,6 +80,7 @@ if __name__ == '__main__':
             # Verify if the portfolio is full
             n_trades = max(max_pos - mt5.positions_total(), 0)
             if n_trades == 0:
+                last_time = datetime.now().minute
                 continue
 
             # Get the best ticker(s) to trade
