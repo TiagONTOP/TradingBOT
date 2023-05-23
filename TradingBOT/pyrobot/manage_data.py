@@ -78,11 +78,11 @@ class ManageDatas:
 
         return data
 
-    def get_train_datas(self, length):
+    def get_train_datas(self, interval, length):
         
         max_window = max(self.momentum_windows)
         length += max_window
-        prices = self.get_clean_prices(lenght=length)
+        prices = self.get_clean_prices(interval=interval, lenght=length)
         data = self.get_features_data(data=prices)
         data['target_1p'] = data.groupby(level='symbol', group_keys=False).apply(lambda x: np.log(x.close/x.close.shift(1)))
         data['target_1p'] = data['target_1p'].shift(-1)
@@ -90,12 +90,11 @@ class ManageDatas:
 
         return data
     
-    def get_predict_datas(self):
-
+    def get_predict_datas(self, interval):
 
         # Faire attention ici max_window pourrait être = max(self.momentum_windows) + 1
-        max_window = max(self.momentum_windows)
-        prices = self.get_clean_prices(lenght=max_window)
+        max_window = max(self.momentum_windows) + 1
+        prices = self.get_clean_prices(interval=interval, lenght=max_window)
         data = self.get_features_data(data=prices)
         data = self.clean_datas(data=data)
         predict_row = data.groupby(level='symbol').apply(lambda x: x.iloc[-1])
