@@ -39,7 +39,7 @@ brk = PyRobot(client_id=login_mt5, client_mdp=mdp_mt5, trading_serveur=server, l
 md = ManageDatas(tickers)
 tm = TradingModel(model=rf_model)
 last_time = None
-time_retrain = 30
+time_retrain = 2
 train_time = time_retrain + 1
 max_pos = 1
 min_time_pf = 10
@@ -57,8 +57,8 @@ if __name__ == '__main__':
             start = time.time()
             # Cancel non executed orders
             brk.cancel_order()
-
             # Check if we must retrain our model
+            train_time += 1
             if time_retrain <= train_time:
                 #get train datas
                 train_data = md.get_train_datas(interval=interval, length=train_period_length)
