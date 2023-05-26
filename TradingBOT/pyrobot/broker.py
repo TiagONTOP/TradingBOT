@@ -1,6 +1,6 @@
 import pandas as pd
 import MetaTrader5 as mt5
-from datetime import datetime, time, timezone, date
+from datetime import datetime, time, timezone, date, timedelta
 import numpy as np
 import math
 from forex_python.converter import CurrencyRates
@@ -68,12 +68,13 @@ class PyRobot:
         else:
             for position in positions:
                 portfolio[position.symbol] = {'PosType' : 1 if position.type == mt5.POSITION_TYPE_BUY else -1,
-                                              'Time': datetime.now() - datetime.fromtimestamp(position.time)}
-                print(position.time, datetime.fromtimestamp(position.time))
+                                              'Time': datetime.utcnow() + timedelta(hours=5) - datetime.fromtimestamp(position.time)}
+                
+
+                print(datetime.fromtimestamp(position.time), (datetime.utcnow() + timedelta(hours=5)))
         return portfolio
 
     def create_entry_trades(self, dict_pos: dict):
-
         for ticker in dict_pos.keys():
 
             order = {
@@ -95,7 +96,6 @@ class PyRobot:
             tickets[position.symbol] = position.ticket
         pos_time = self.get_portfolio_pos_time()
         for ticker in pos_time.keys():
-            print(ticker, (pos_time[ticker]['Time'].seconds / 60 > time_limit), pos_time[ticker]['Time'].seconds / 60, (pos_time[ticker]['PosType'] != sign(all_preds.loc[ticker])))
             if (pos_time[ticker]['Time'].seconds / 60 > time_limit) and (pos_time[ticker]['PosType'] != sign(all_preds.loc[ticker])):
                 order = {
                     "action": mt5.TRADE_ACTION_DEAL,
@@ -111,7 +111,6 @@ class PyRobot:
     def cancel_order(self):
 
         orders = mt5.orders_get()
-        print(orders)
         if orders is None:
             return
         for order in orders:
