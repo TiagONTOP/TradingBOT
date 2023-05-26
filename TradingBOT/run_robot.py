@@ -39,7 +39,7 @@ brk = PyRobot(client_id=login_mt5, client_mdp=mdp_mt5, trading_serveur=server, l
 md = ManageDatas(tickers)
 tm = TradingModel(model=rf_model)
 last_time = None
-time_retrain = 2
+time_retrain = 30
 train_time = time_retrain + 1
 max_pos = 1
 min_time_pf = 10
