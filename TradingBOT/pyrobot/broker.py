@@ -6,6 +6,7 @@ import math
 from forex_python.converter import CurrencyRates
 import holidays
 from typing import List, Dict, Union
+from currency_converter import CurrencyConverter
 
 def sign(x):
     return int(math.copysign(1, x))
@@ -23,6 +24,7 @@ class PyRobot:
         self.trades: dict = {}
         self.leverage = leverage
         self.cr = CurrencyRates()
+        self.cc = CurrencyConverter()
 
     def _create_session(self):
 
@@ -120,11 +122,13 @@ class PyRobot:
                 })
     
     def leverage_to_volume(self, ticker):
-
         account_currency = mt5.account_info().currency
         account = mt5.account_info().equity
         currency_base = mt5.symbol_info(ticker).currency_base
-        lot_value = self.cr.convert(currency_base, account_currency, account)
+        try:
+            lot_value = self.cr.convert(currency_base, account_currency, account)
+        except:
+            lot_value = self.cc.convert(account, currency_base, account_currency)
         volume = self.leverage * account / lot_value
         volume = round(volume, ndigits=2)
         return volume 
