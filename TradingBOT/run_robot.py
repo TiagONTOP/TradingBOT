@@ -4,26 +4,17 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, 'pyrobot'))
 from broker import PyRobot
 from manage_data import ManageDatas
-from model import TradingModel
+from model import LGBMStrategy
+from strategy import SimpleMomentumStrategy # Added import
 from datetime import datetime
 from lightgbm import LGBMRegressor
 import MetaTrader5 as mt5
 import time
 
+# Strategy Selection
+STRATEGY_NAME = "LGBM"  # Options: "LGBM", "Momentum"
 
-rf_model = LGBMRegressor(boosting_type='rf', 
-                         objective='regression',
-                         device='cpu',
-                         n_jobs=-1,
-                         n_estimators=500,
-                         max_bin=100, 
-                         max_depth=10,
-                         num_leaves=20,
-                         random_state=42,
-                         feature_fraction=0.1,
-                         bagging_fraction=0.3,
-                         bagging_freq=1)
-
+# Model and training configurations (rf_model is now instantiated conditionally)
 train_period_length = 2000
 login_mt5 = 1051651055
 mdp_mt5 = 'WTZRFSRT6J'
@@ -37,7 +28,28 @@ tickers = ['AUDCAD', 'AUDJPY', 'AUDNZD', 'AUDCHF', 'AUDUSD', 'GBPAUD',
 
 brk = PyRobot(client_id=login_mt5, client_mdp=mdp_mt5, trading_serveur=server, leverage=leverage)
 md = ManageDatas(tickers)
-tm = TradingModel(model=rf_model)
+
+# Initialize the chosen strategy
+if STRATEGY_NAME == "LGBM":
+    rf_model = LGBMRegressor(boosting_type='rf',
+                             objective='regression',
+                             device='cpu',
+                             n_jobs=-1,
+                             n_estimators=500,
+                             max_bin=100,
+                             max_depth=10,
+                             num_leaves=20,
+                             random_state=42,
+                             feature_fraction=0.1,
+                             bagging_fraction=0.3,
+                             bagging_freq=1)
+    strategy = LGBMStrategy(model=rf_model)
+elif STRATEGY_NAME == "Momentum":
+    momentum_params = {"momentum_window": 5} # Example parameter
+    strategy = SimpleMomentumStrategy(**momentum_params)
+else:
+    raise ValueError(f"Unknown strategy: {STRATEGY_NAME}")
+
 last_time = None
 time_retrain = 30
 train_time = time_retrain + 1
@@ -66,14 +78,14 @@ if __name__ == '__main__':
                 X_train = train_data.drop([target_column], axis=1)
                 y_train = train_data[target_column]
                 #Train model
-                tm.train_model(X=X_train, y=y_train)
+                strategy.train(X_train=X_train, y_train=y_train)
                 train_time = 0
             
             # Get datas for predictions
             X = md.get_predict_datas(interval=interval)
 
             # Get predictions
-            preds = tm.predict(X=X)
+            preds = strategy.predict(X=X)
             # Close all positions that need to be closed
             brk.create_close_trades(all_preds=preds, time_limit=min_time_pf)
 
@@ -84,7 +96,7 @@ if __name__ == '__main__':
                 continue
 
             # Get the best ticker(s) to trade
-            tickers_to_trade = tm.tickers_to_trades(n_trades=n_trades)
+            tickers_to_trade = strategy.generate_trades(predictions=preds, n_trades=n_trades)
 
             # send orders
             brk.create_entry_trades(dict_pos=tickers_to_trade)
